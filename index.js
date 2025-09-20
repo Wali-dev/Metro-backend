@@ -15,6 +15,7 @@ database();
 app.use(express.json())
 // CORS
 app.use(cors({ origin: "*" }));
+// app.use(cors())
 
 // Routes
 app.use('/api/v1', apiRoutes);

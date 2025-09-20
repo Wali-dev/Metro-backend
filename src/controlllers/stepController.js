@@ -1,30 +1,46 @@
 const { Step } = require('../models/stepModel');
 
+
 exports.createStep = async (req, res) => {
+    const { _id, steps } = req.body;
+    const instruction_id = _id;
+
     try {
-        const { instruction_id, step_order, title, description, image_url, video_url } = req.body;
+        if (!Array.isArray(steps) || steps.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Steps must be a non-empty array',
+            });
+        }
 
-        const step = new Step({
-            instruction_id,
-            step_order,
-            title,
-            description,
-            image_url,
-            video_url,
-        });
+        const results = [];
 
-        await step.save();
+        for (const step of steps) {
+            const updatedStep = await Step.findOneAndUpdate(
+                { instruction_id, step_order: step.step_order }, // match existing step
+                {
+                    instruction_id,
+                    step_order: step.step_order,
+                    title: step.title,
+                    description: step.description,
+                    image_url: step.image_url,
+                    video_url: step.video_url,
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+            results.push(updatedStep);
+        }
 
         return res.status(201).json({
             success: true,
-            message: 'Step created successfully',
-            step,
+            message: 'Steps added/updated successfully',
+            steps: results,
         });
     } catch (err) {
-        console.error('Error creating step:', err);
+        console.error('Error creating/updating steps:', err);
         return res.status(500).json({ success: false, message: 'Server error' });
     }
-};
+}
 
 exports.updateStep = async (req, res) => {
     try {

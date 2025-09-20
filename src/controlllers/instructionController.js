@@ -1,5 +1,6 @@
 const { Instruction } = require('../models/instructionModel');
 const mongoose = require("mongoose");
+const { Step } = require('../models/stepModel');
 
 exports.createInstruction = async (req, res) => {
     try {
@@ -28,10 +29,36 @@ exports.createInstruction = async (req, res) => {
     }
 };
 
+// exports.updateInstruction = async (req, res) => {
+
+//     try {
+//         const { id } = req.params;
+//         const updates = { ...req.body };
+
+//         const instruction = await Instruction.findByIdAndUpdate(id, updates, {
+//             new: true,
+//             runValidators: true,
+//         });
+
+//         if (!instruction) {
+//             return res.status(404).json({ success: false, message: 'Instruction not found' });
+//         }
+
+//         return res.status(200).json({
+//             success: true,
+//             message: 'Instruction updated successfully',
+//             instruction,
+//         });
+//     } catch (err) {
+//         console.error('Error updating instruction:', err);
+//         return res.status(500).json({ success: false, message: 'Server error' });
+//     }
+// };
+
 exports.updateInstruction = async (req, res) => {
     try {
         const { id } = req.params;
-        const updates = { ...req.body };
+        const { steps, ...updates } = req.body;
 
         const instruction = await Instruction.findByIdAndUpdate(id, updates, {
             new: true,
@@ -42,10 +69,39 @@ exports.updateInstruction = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Instruction not found' });
         }
 
+        if (Array.isArray(steps) && steps.length > 0) {
+            const orders = steps.map(s => s.step_order);
+            const hasDuplicateOrderInPayload = orders.some((o, i) => orders.indexOf(o) !== i);
+            if (hasDuplicateOrderInPayload) {
+                return res.status(400).json({ success: false, message: 'Duplicate step_order values in payload' });
+            }
+
+            const upsertPromises = steps.map(step =>
+                Step.findOneAndUpdate(
+                    { instruction_id: id, step_order: step.step_order },
+                    {
+                        instruction_id: id,
+                        step_order: step.step_order,
+                        title: step.title,
+                        description: step.description,
+                        image_url: step.image_url,
+                        video_url: step.video_url,
+                    },
+                    { upsert: true, new: true, setDefaultsOnInsert: true }
+                ).exec()
+            );
+
+            await Promise.all(upsertPromises);
+        }
+
+        const updatedInstruction = await Instruction.findById(id).lean();
+        const instructionSteps = await Step.find({ instruction_id: id }).sort({ step_order: 1 }).lean();
+        updatedInstruction.steps = instructionSteps;
+
         return res.status(200).json({
             success: true,
             message: 'Instruction updated successfully',
-            instruction,
+            instruction: updatedInstruction,
         });
     } catch (err) {
         console.error('Error updating instruction:', err);
