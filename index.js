@@ -24,8 +24,8 @@ app.use('/api/v1', apiRoutes);
 // Error Handler
 app.use(errorHandler)
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 }).on('error', (err) => {
     console.error('Server error:', err);
 });
